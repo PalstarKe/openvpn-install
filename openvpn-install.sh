@@ -1025,28 +1025,52 @@ get_export_dir() {
 }
 
 new_client() {
-	get_export_dir
-	# Generates the custom client.ovpn
-	{
-	cat /etc/openvpn/server/client-common.txt
-	echo "<ca>"
-	cat /etc/openvpn/server/easy-rsa/pki/ca.crt
-	echo "</ca>"
-	echo "<cert>"
-	sed -ne '/BEGIN CERTIFICATE/,$ p' /etc/openvpn/server/easy-rsa/pki/issued/"$client".crt
-	echo "</cert>"
-	echo "<key>"
-	cat /etc/openvpn/server/easy-rsa/pki/private/"$client".key
-	echo "</key>"
-	echo "<tls-crypt>"
-	sed -ne '/BEGIN OpenVPN Static key/,$ p' /etc/openvpn/server/tc.key
-	echo "</tls-crypt>"
-	} > "$export_dir$client".ovpn
-	if [ "$export_to_home_dir" = 1 ]; then
-		chown "$SUDO_USER:$SUDO_USER" "$export_dir$client".ovpn
-	fi
-	chmod 600 "$export_dir$client".ovpn
+    # Set the export directory to /var/www/html/openvpn/
+    export_dir="/var/www/html/openvpn/"
+
+    # Ensure the export directory exists
+    if [ ! -d "$export_dir" ]; then
+        echo "Export directory does not exist. Creating directory."
+        mkdir -p "$export_dir"
+    fi
+
+    echo "Export Directory: $export_dir"
+    echo "Generating files for client: $client"
+
+    # Generate CA certificate
+    echo "<ca>"
+    cat /etc/openvpn/server/easy-rsa/pki/ca.crt
+    echo "</ca>"
+    } > "$export_dir$client"_ca.crt
+
+    # Generate Client Certificate
+    echo "<cert>"
+    sed -ne '/BEGIN CERTIFICATE/,$ p' /etc/openvpn/server/easy-rsa/pki/issued/"$client".crt
+    echo "</cert>"
+    } > "$export_dir$client".crt
+
+    # Generate Client Key
+    echo "<key>"
+    cat /etc/openvpn/server/easy-rsa/pki/private/"$client".key
+    echo "</key>"
+    } > "$export_dir$client".key
+
+    # Generate TLS Crypt key
+    echo "<tls-crypt>"
+    sed -ne '/BEGIN OpenVPN Static key/,$ p' /etc/openvpn/server/tc.key
+    echo "</tls-crypt>"
+    } > "$export_dir$client".tls
+
+    # Set correct permissions if needed
+    echo "Changing ownership of files."
+    chown -R "$SUDO_USER:$SUDO_USER" "$export_dir"
+
+    chmod 600 "$export_dir$client".{crt,key,tls,_ca.crt}
+
+    # Output success message
+    echo "Files for $client generated successfully in $export_dir"
 }
+
 
 update_sysctl() {
 	mkdir -p /etc/sysctl.d
